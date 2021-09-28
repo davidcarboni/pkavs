@@ -1,0 +1,67 @@
+name: pkavs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+    # Build when there are changes in the directory that holds the component,
+    # or when this workflow file is changed
+    - 'pkavs/**'
+    - '.github/workflows/pkavs.yml'
+  schedule:
+    # A weekly build to pick up updates to the base container image
+    # A weekday at mid-day - when someone is likely to be working (avoid bank holidays)
+    - cron: "0 12 * * 2"
+
+# Based on: https://github.com/aws-actions/amazon-ecr-login
+
+jobs:
+  deploy:
+    name: App container image
+    runs-on: ubuntu-latest
+    env:
+      component: pkavs
+
+    steps:
+
+    - uses: actions/checkout@v2
+
+    - name: AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: eu-west-2
+
+    - name: Login to ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build and push image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ env.component }}
+        IMAGE_TAG: latest
+      run: |
+        # For simplicity, we're only building "latest" on the basis that we can
+        # fix-forward by rolling back to the state of an earlier commit in the repo:
+        COMMIT_HASH=$(git rev-parse HEAD)
+        docker build --build-arg COMMIT_HASH=$COMMIT_HASH -t $ECR_REGISTRY/$ECR_REPOSITORY:latest ./${{ env.component }}
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+    - name: Update ECS deployment
+      env:
+        CLUSTER_ARN: ${{ secrets.CLUSTER_ARN }}
+      run:
+        aws ecs update-service --service pkavs --cluster $CLUSTER_ARN --force-new-deployment
+
+    - name: Slack Notification
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_USERNAME: PKAVS build
+        SLACK_COLOR: ${{ job.status }}
+        SLACK_ICON_EMOJI: ":woman:"
+        SLACK_FOOTER: Github Actions
+      if: failure()

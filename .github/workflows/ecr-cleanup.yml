@@ -1,0 +1,62 @@
+name: ecr-cleanup
+
+on:
+  schedule:
+    # Tuesday at mid-day - when someone is likely to be working (avoid bank holidays)
+    - cron: "0 12 * * 2"
+  push:
+    branches:
+      - main
+    paths:
+    - '.github/workflows/ecr-cleanup.yml'
+
+# Based on: https://github.com/aws-actions/amazon-ecr-login
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: eu-west-2
+
+    steps:
+
+    - name: AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Delete untagged images
+      run: |
+
+        repositories=(
+          pkavs
+        )
+
+        for repository in "${repositories[@]}"
+        do
+          FOUND_IMAGES=$( aws ecr list-images --region ${{ env.AWS_REGION }} --repository-name $repository --filter "tagStatus=UNTAGGED" --query 'imageIds[*]' --output text )
+          if [ ! -z "$FOUND_IMAGES" ]
+          then
+            echo "Deleting untagged images frobm $repository:"
+            IMAGES_TO_DELETE=$( aws ecr list-images --region ${{ env.AWS_REGION }} --repository-name $repository --filter "tagStatus=UNTAGGED" --query 'imageIds[*]' --output json )
+            aws ecr batch-delete-image --region ${{ env.AWS_REGION }} --repository-name $repository --image-ids "$IMAGES_TO_DELETE"
+          else
+            echo "$repository is clear of untagged images."
+          fi
+        done
+
+    - name: Slack Notification
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_USERNAME: PKAVS build
+        SLACK_COLOR: ${{ job.status }}
+        SLACK_ICON_EMOJI: ":woman:"
+        SLACK_FOOTER: Github Actions
+      if: failure()
