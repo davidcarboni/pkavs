@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -eu
+export AWS_PROFILE=carboni
 
 # Delete ECR images
 repositories=(

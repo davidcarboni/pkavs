@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -eu
+export AWS_PROFILE=carboni
 
 # We need to set secrets in the environment before we can bootstrap or deploy:
 source ../secrets/github.sh
 source ../secrets/slack.sh
-
-export AWS_PROFILE=carboni
 
 # Set Github secrets
 function gha_secrets {
@@ -40,13 +39,6 @@ function gha_build {
   echo "Sleeping for 1 more minute..." && sleep 60
 }
 
-# Build an environment file for Docker Compose to run locally
-function docker_compose_env {
-  echo "Writing Docker Compose environment file"
-  npm run compose
-  git commit -m "Infrastructure build" ../docker-compose.env
-}
-
 # First-pass deployment
 function first_pass {
   echo "Running deploy initial pass"
@@ -73,6 +65,5 @@ time first_pass
 gha_secrets
 gha_build
 time second_pass
-docker_compose_env
 
 echo "End: $(date)"

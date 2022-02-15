@@ -10,8 +10,7 @@
     "test": "jest",
     "cdk": "cdk",
     "lint": "eslint --fix --ext ts bin lib",
-    "secrets": "ts-node src/secrets.ts",
-    "compose": "ts-node src/compose.ts"
+    "secrets": "ts-node src/secrets.ts"
   },
   "devDependencies": {
     "@types/jest": "*",
