@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+
+  # Initialisation might be aomething like:
+  # - docker-compose exec pkavs bash
+  # - odoo --database=postgres --db_user=odoo --db_password=password --db_host=postgres -i base
+  pkavs:
+    build: pkavs
+    ports:
+      - "8069:8069"
+    environment:
+      - HOST=postgres
+      - PORT=5432
+      - USER=odoo
+      - PASSWORD=password
+
+  postgres:
+    image: postgres
+    environment:
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgres
