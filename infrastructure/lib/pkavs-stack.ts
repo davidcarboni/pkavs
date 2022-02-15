@@ -1,4 +1,6 @@
-import { CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import {
+  CfnOutput, RemovalPolicy, Stack, StackProps,
+} from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
@@ -76,7 +78,25 @@ export default class pkavsStack extends Stack {
     // It seems like NAT gateways are costly, so I've set this up to avoid that.
     // Based on: https://www.binarythinktank.com/blog/truly-serverless-container
     // and https://stackoverflow.com/questions/64299664/how-to-configure-aws-cdk-applicationloadbalancedfargateservice-to-log-parsed-jso
-    const vpc = new ec2.Vpc(this, 'vpc');
+    const vpc = new ec2.Vpc(this, 'vpc', {
+      subnetConfiguration: [
+        {
+          cidrMask: 24,
+          name: 'ingress',
+          subnetType: ec2.SubnetType.PUBLIC,
+        },
+        // {
+        //   cidrMask: 24,
+        //   name: 'application',
+        //   subnetType: ec2.SubnetType.PRIVATE_WITH_NAT,
+        // },
+        {
+          cidrMask: 28,
+          name: 'rds',
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+        },
+      ],
+    });
 
     // // Web App environment variables
     // - can't do this until Cognito is set up
