@@ -1,6 +1,8 @@
-# Ping my House
+# CDK Infrastructure
 
-TypeScript with CDK.
+This infrastructure is built using AWS Cloud Development Kit (CDK):
+
+ * `cdk init app --language=typescript`
 
 NB this project is run with the `deploy.sh` script.
 
