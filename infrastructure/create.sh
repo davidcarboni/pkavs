@@ -31,7 +31,7 @@ function gha_build {
     -X POST \
     -H "Accept: application/vnd.github.v3+json" \
     $url \
-    -d '{"ref":"main", "inputs": {"update_lambda":"no"}}'
+    -d '{"ref":"main", "inputs": {"update_component":"no"}}'
   done
 
   # Wait for builds to (hopefully) succeed
