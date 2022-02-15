@@ -62,12 +62,12 @@ jobs:
       run:
         aws ecs update-service --service pkavs --cluster $CLUSTER_ARN --force-new-deployment
 
-    - name: Slack Notification
-      uses: rtCamp/action-slack-notify@v2
-      env:
-        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-        SLACK_USERNAME: PKAVS build
-        SLACK_COLOR: ${{ job.status }}
-        SLACK_ICON_EMOJI: ":woman:"
-        SLACK_FOOTER: Github Actions
-      if: failure()
+    # - name: Slack Notification
+    #   uses: rtCamp/action-slack-notify@v2
+    #   env:
+    #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+    #     SLACK_USERNAME: PKAVS build
+    #     SLACK_COLOR: ${{ job.status }}
+    #     SLACK_ICON_EMOJI: ":woman:"
+    #     SLACK_FOOTER: Github Actions
+    #   if: failure()
