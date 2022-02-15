@@ -5,6 +5,8 @@ set -eu
 source ../secrets/github.sh
 source ../secrets/slack.sh
 
+export AWS_PROFILE=carboni
+
 # First ever deploy (and safe to call on subsequent deploys):
 cdk bootstrap aws://503344433256/eu-west-2 # UK Resources
 cdk bootstrap aws://503344433256/us-east-1 # Cloudfront resources
