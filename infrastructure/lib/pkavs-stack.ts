@@ -147,22 +147,5 @@ export default class PkavsStack extends Stack {
       const cfnService = node.findChild('Service') as ecs.CfnService;
       cfnService.desiredCount = 0;
     }
-
-    // TODO tis needs some finessing
-    // new rds.DatabaseCluster(this, 'Database', {
-    //   engine: rds.DatabaseClusterEngine.auroraPostgres({
-    //     version: rds.AuroraPostgresEngineVersion.VER_10_16,
-    //   }),
-    //   credentials: rds.Credentials.fromGeneratedSecret('clusteradmin'),
-    // Optional - will default to 'admin' username and generated password
-    //   instanceProps: {
-    //     // optional , defaults to t3.medium
-    //     instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.SMALL),
-    //     vpcSubnets: {
-    //       subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
-    //     },
-    //     vpc,
-    //   },
-    // });
   }
 }
