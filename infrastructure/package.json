@@ -28,8 +28,12 @@
     "typescript": "*"
   },
   "dependencies": {
+    "@octokit/plugin-throttling": "*",
+    "@octokit/rest": "*",
+    "@octokit/types": "*",
     "aws-cdk-lib": "*",
     "constructs": "*",
-    "source-map-support": "*"
+    "source-map-support": "*",
+    "tweetsodium": "*"
   }
 }
