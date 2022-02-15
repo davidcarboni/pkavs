@@ -7,10 +7,6 @@ source ../secrets/slack.sh
 
 export AWS_PROFILE=carboni
 
-# First ever deploy (and safe to call on subsequent deploys):
-cdk bootstrap aws://503344433256/eu-west-2 # UK Resources
-cdk bootstrap aws://503344433256/us-east-1 # Cloudfront resources
-
 # Set Github secrets
 function gha_secrets {
   echo "Setting Github secrets"
@@ -21,22 +17,20 @@ function gha_secrets {
 # Trigger CI builds by adding commits to the component directories
 function gha_build {
   components=(
-    auth
-    metrics
-    web
-    api
+    pkavs
   )
 
   # Dispatch workflows
   source ../secrets/github.sh
   for repository in "${components[@]}"
   do
-    echo https://api.github.com/repos/davidcarboni/pkavs/actions/workflows/${repository}.yml/dispatches
+    url=https://api.github.com/repos/davidcarboni/pkavs/actions/workflows/${repository}.yml/dispatches
+    echo $url
     curl \
     -H "Authorization: token ${PERSONAL_ACCESS_TOKEN}" \
     -X POST \
     -H "Accept: application/vnd.github.v3+json" \
-    https://api.github.com/repos/davidcarboni/pkavs/actions/workflows/${repository}.yml/dispatches \
+    $url \
     -d '{"ref":"main", "inputs": {"update_lambda":"no"}}'
   done
 
@@ -69,6 +63,11 @@ function second_pass {
 
 echo "Starting infrastructure build: $(date)"
 npm run lint
+
+# First ever deploy (and safe to call on subsequent deploys):
+account=$(aws sts get-caller-identity --query Account --output text)
+cdk bootstrap aws://${account}/eu-west-2 # UK Resources
+cdk bootstrap aws://${account}/us-east-1 # Cloudfront resources
 
 time first_pass
 gha_secrets
