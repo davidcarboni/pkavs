@@ -86,12 +86,10 @@ export default function ghaUser(
   const user = new User(construct, 'ghaUser', { userName });
   user.attachInlinePolicy(ghaPolicy);
 
-  let key: CfnAccessKey | undefined;
+  let accessKey: CfnAccessKey | undefined;
   if (!process.env.REKEY) {
-    key = new CfnAccessKey(construct, 'ghaUserAccessKey', {
-      userName: user.userName,
-    });
+    accessKey = new CfnAccessKey(construct, 'ghaUserAccessKey', { userName: user.userName });
   }
 
-  return key;
+  return accessKey;
 }
