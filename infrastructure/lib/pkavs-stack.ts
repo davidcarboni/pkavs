@@ -2,7 +2,6 @@ import * as cdk from '@aws-cdk/core';
 import * as ecr from '@aws-cdk/aws-ecr';
 import * as ecs from '@aws-cdk/aws-ecs';
 import * as ec2 from '@aws-cdk/aws-ec2';
-// import * as s3 from '@aws-cdk/aws-s3';
 import * as acm from '@aws-cdk/aws-certificatemanager';
 import * as route53 from '@aws-cdk/aws-route53';
 import * as ecsPatterns from '@aws-cdk/aws-ecs-patterns';
