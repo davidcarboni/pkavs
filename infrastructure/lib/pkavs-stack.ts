@@ -8,45 +8,53 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import { ApplicationProtocol } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import { Credentials, ParameterGroup } from 'aws-cdk-lib/aws-rds';
+import ghaUser from './ghaUser';
 
 // The infrastructure has circular dependencies
-// so we need to build it in two passes
-const pass = process.env.PASS || 'full';
+// E.g. ECR repositories need to be:
+// 1. Created by the CDK
+// 2. Populated with an image by a Github Actions build
+// 3. The image referenced by a Lanmbda function
+// so we need to build in two passes
+// const initial = 'initial';
+const full = 'full';
+const pass = process.env.PASS || full;
 
 // App name
-const name = 'pkavs';
-const domainName = 'tampontaxi.pkavs.org.uk';
+let name = 'pkavs';
+const zoneName = 'pingmyhouse.com';
+const domainName = `${name}.${zoneName}`;
 
 // DNS
 let zone: route53.IHostedZone;
-let certificate: acm.Certificate;
+const hostedZoneId = 'Z10401883PXAJJHUQUKVI';
 
 // Web App
 let webAppRepository: ecr.Repository;
 let albfs: ecsPatterns.ApplicationLoadBalancedFargateService;
 
-// CI/CD
-let githubActionsUser: iam.User;
-let githubActionsUserAccessKey: iam.CfnAccessKey;
-
-export default class pkavsStack extends Stack {
+export default class PkavsStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
+    name = id;
     console.log(`Setting up stack ${name} on domain ${domainName}.`);
 
+    // Infrastructure
     this.dns();
     this.webApp();
 
-    // GHA build user
-    this.githubActionsUser();
+    // Github Actions IAM user
+    const accessKey = ghaUser(this, name, [webAppRepository], [], [albfs.service]);
 
     // Outputs used by GHA
     new CfnOutput(this, 'clusterArn', { value: albfs.cluster.clusterArn });
-    new CfnOutput(this, 'ghaAccessKeyId', { value: githubActionsUserAccessKey.ref });
-    new CfnOutput(this, 'ghaSecretAccessKey', { value: githubActionsUserAccessKey.attrSecretAccessKey });
+    if (accessKey) {
+      new CfnOutput(this, 'ghaAccessKeyId', { value: accessKey.ref });
+      new CfnOutput(this, 'ghaSecretAccessKey', { value: accessKey.attrSecretAccessKey });
+    }
   }
 
   /**
@@ -54,15 +62,10 @@ export default class pkavsStack extends Stack {
    */
   dns() {
     // We look up the hosted zone, otherwise we'd have to update nameservers if the stach is rebuilt
-    const dnsZone = route53.HostedZone.fromHostedZoneAttributes(this, 'dnsZone', {
-      zoneName: domainName,
-      hostedZoneId: 'Z10401883PXAJJHUQUKVI',
+    zone = route53.HostedZone.fromHostedZoneAttributes(this, 'dnsZone', {
+      zoneName,
+      hostedZoneId,
     });
-    certificate = new acm.DnsValidatedCertificate(this, 'CertificateCom', {
-      domainName: dnsZone.zoneName,
-      hostedZone: dnsZone,
-    });
-    zone = dnsZone;
   }
 
   /**
@@ -93,19 +96,20 @@ export default class pkavsStack extends Stack {
         {
           cidrMask: 28,
           name: 'rds',
-          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+          // PRIVATE_ISOLATED throws an error at time of writing:
+          subnetType: ec2.SubnetType.PRIVATE,
         },
       ],
     });
 
-    // // Web App environment variables
-    // - can't do this until Cognito is set up
-    // - can't set up Cognito until the Web App has set up an A record
-    // Catch-22.
-    // This works only after an initial build of the infrastructure.
-    const environment: { [key: string]: string; } = {
-      ENVIRONMENT: 'variable',
-    };
+    // Database
+    const credentials = Credentials.fromUsername('odoo');
+    const cluster = new rds.ServerlessCluster(this, 'AnotherCluster', {
+      engine: rds.DatabaseClusterEngine.AURORA_POSTGRESQL,
+      parameterGroup: ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql10'),
+      vpc,
+      credentials,
+    });
 
     // Fargate
     albfs = new ecsPatterns.ApplicationLoadBalancedFargateService(this, `albFargateService_${name}`, {
@@ -114,14 +118,22 @@ export default class pkavsStack extends Stack {
       protocol: ApplicationProtocol.HTTPS,
       domainZone: zone,
       domainName,
-      certificate,
+      certificate: new acm.DnsValidatedCertificate(this, 'CertificateCom', {
+        domainName: zone.zoneName,
+        hostedZone: zone,
+      }),
       cpu: 512,
       memoryLimitMiB: 1024,
       taskImageOptions: {
         containerName: name,
         image: ecs.ContainerImage.fromEcrRepository(webAppRepository),
         containerPort: 8069,
-        environment,
+        environment: {
+          CLUSTER_ARN: cluster.clusterArn,
+          // SECRET_ARN: cluster.secret!.secretArn,
+          DB_USER: credentials.username,
+          DB_PASSWORD: credentials.password?.toString()!,
+        },
       },
       desiredCount: 1,
       vpc,
@@ -137,74 +149,20 @@ export default class pkavsStack extends Stack {
     }
 
     // TODO tis needs some finessing
-    new rds.DatabaseCluster(this, 'Database', {
-      engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.VER_10_16,
-      }),
-      credentials: rds.Credentials.fromGeneratedSecret('clusteradmin'), // Optional - will default to 'admin' username and generated password
-      instanceProps: {
-        // optional , defaults to t3.medium
-        instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.SMALL),
-        vpcSubnets: {
-          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
-        },
-        vpc,
-      },
-    });
-  }
-
-  /**
-   * A user for Gihud Actions CI/CD.
-   */
-  githubActionsUser() {
-    githubActionsUser = new iam.User(this, 'githubActionsUser', { userName: 'githubActionsUser' });
-
-    const statements: iam.PolicyStatement[] = [];
-
-    statements.push(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        'ecr:GetAuthorizationToken',
-      ],
-      resources: [
-        '*',
-      ],
-    }));
-
-    statements.push(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        'ecr:GetDownloadUrlForLayer',
-        'ecr:BatchGetImage',
-        'ecr:BatchDeleteImage',
-        'ecr:CompleteLayerUpload',
-        'ecr:UploadLayerPart',
-        'ecr:InitiateLayerUpload',
-        'ecr:BatchCheckLayerAvailability',
-        'ecr:PutImage',
-        'ecr:ListImages',
-      ],
-      resources: [
-        webAppRepository.repositoryArn,
-      ],
-    }));
-
-    statements.push(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        'ecs:UpdateService',
-      ],
-      resources: [albfs.service.serviceArn],
-    }));
-
-    const githubActionsUserPolicy = new iam.Policy(this, 'githubActionsUserPolicy', {
-      policyName: 'gha-policy',
-      statements,
-    });
-    githubActionsUser.attachInlinePolicy(githubActionsUserPolicy);
-
-    githubActionsUserAccessKey = new iam.CfnAccessKey(this, 'myAccessKey', {
-      userName: githubActionsUser.userName,
-    });
+    // new rds.DatabaseCluster(this, 'Database', {
+    //   engine: rds.DatabaseClusterEngine.auroraPostgres({
+    //     version: rds.AuroraPostgresEngineVersion.VER_10_16,
+    //   }),
+    //   credentials: rds.Credentials.fromGeneratedSecret('clusteradmin'),
+    // Optional - will default to 'admin' username and generated password
+    //   instanceProps: {
+    //     // optional , defaults to t3.medium
+    //     instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.SMALL),
+    //     vpcSubnets: {
+    //       subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+    //     },
+    //     vpc,
+    //   },
+    // });
   }
 }
