@@ -1,13 +1,14 @@
-import * as cdk from '@aws-cdk/core';
-import * as ecr from '@aws-cdk/aws-ecr';
-import * as ecs from '@aws-cdk/aws-ecs';
-import * as ec2 from '@aws-cdk/aws-ec2';
-import * as acm from '@aws-cdk/aws-certificatemanager';
-import * as route53 from '@aws-cdk/aws-route53';
-import * as ecsPatterns from '@aws-cdk/aws-ecs-patterns';
-import * as iam from '@aws-cdk/aws-iam';
-import * as rds from '@aws-cdk/aws-rds';
-import { ApplicationProtocol } from '@aws-cdk/aws-elasticloadbalancingv2';
+import { Stack, StackProps } from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as rds from 'aws-cdk-lib/aws-rds';
+import { ApplicationProtocol } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 
 // The infrastructure has circular dependencies
 // so we need to build it in two passes
@@ -29,8 +30,8 @@ let albfs: ecsPatterns.ApplicationLoadBalancedFargateService;
 let githubActionsUser: iam.User;
 let githubActionsUserAccessKey: iam.CfnAccessKey;
 
-export default class pkavsStack extends cdk.Stack {
-  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+export default class pkavsStack extends Stack {
+  constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
     console.log(`Setting up stack ${name} on domain ${domainName}.`);
 
@@ -41,9 +42,9 @@ export default class pkavsStack extends cdk.Stack {
     this.githubActionsUser();
 
     // Outputs used by GHA
-    new cdk.CfnOutput(this, 'clusterArn', { value: albfs.cluster.clusterArn });
-    new cdk.CfnOutput(this, 'ghaAccessKeyId', { value: githubActionsUserAccessKey.ref });
-    new cdk.CfnOutput(this, 'ghaSecretAccessKey', { value: githubActionsUserAccessKey.attrSecretAccessKey });
+    new CfnOutput(this, 'clusterArn', { value: albfs.cluster.clusterArn });
+    new CfnOutput(this, 'ghaAccessKeyId', { value: githubActionsUserAccessKey.ref });
+    new CfnOutput(this, 'ghaSecretAccessKey', { value: githubActionsUserAccessKey.attrSecretAccessKey });
   }
 
   /**
@@ -69,7 +70,7 @@ export default class pkavsStack extends cdk.Stack {
     // Container repository
     webAppRepository = new ecr.Repository(this, 'WebAppRepository', {
       repositoryName: name,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      removalPolicy: RemovalPolicy.DESTROY,
     });
 
     // It seems like NAT gateways are costly, so I've set this up to avoid that.
