@@ -13,6 +13,12 @@ on:
     # A weekly build to pick up updates to the base container image
     # A weekday at mid-day - when someone is likely to be working (avoid bank holidays)
     - cron: "0 12 * * 2"
+  workflow_dispatch:
+    inputs:
+      update_component:
+        description: 'Whether the workflow should attempt to update the deployment'
+        required: true
+        default: 'no'
 
 # Based on: https://github.com/aws-actions/amazon-ecr-login
 
