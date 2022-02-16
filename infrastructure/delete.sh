@@ -22,11 +22,11 @@ done
 
 # Delete the stack
 echo "Deleting stack..."
-aws cloudformation delete-stack --stack-name PKAVS
+aws cloudformation delete-stack --stack-name pkavs
 echo "Waiting for delete to complete..."
 time \
-aws cloudformation wait stack-delete-complete --stack-name PKAVS || \
+aws cloudformation wait stack-delete-complete --stack-name pkavs || \
 echo "retrying delete..." && \
-aws cloudformation delete-stack --stack-name PKAVS && \
+aws cloudformation delete-stack --stack-name pkavs && \
 echo "Delete succeeded on second round."
 echo "The End."
