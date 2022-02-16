@@ -2,6 +2,7 @@
 
 This infrastructure is built using AWS Cloud Development Kit (CDK):
 
+ * `npm install --global aws-cdk typescript`
  * `cdk init app --language=typescript`
 
 NB this project is run with the `deploy.sh` script.
