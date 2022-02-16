@@ -89,7 +89,7 @@ export default function ghaUser(
   });
 
   // A user with the policy attached
-  const user = new User(stack, 'ghaUser', { userName: stack.stackName });
+  const user = new User(stack, 'ghaUser', { userName: stack.stackName.toLowerCase() });
   user.attachInlinePolicy(ghaPolicy);
 
   // Credentials
