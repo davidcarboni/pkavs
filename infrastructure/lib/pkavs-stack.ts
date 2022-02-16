@@ -47,7 +47,7 @@ export default class PkavsStack extends Stack {
     this.webApp();
 
     // Github Actions IAM user
-    const accessKey = ghaUser(this, name, [webAppRepository], [], [albfs.service]);
+    const accessKey = ghaUser(this, [webAppRepository], [], [albfs.service]);
 
     // Outputs used by GHA
     new CfnOutput(this, 'clusterArn', { value: albfs.cluster.clusterArn });

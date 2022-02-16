@@ -4,20 +4,20 @@ import {
 } from 'aws-cdk-lib/aws-iam';
 import { Function } from 'aws-cdk-lib/aws-lambda';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
-import { Construct } from 'constructs';
+import { Stack } from 'aws-cdk-lib';
 
 /**
  * A user for Gihud Actions CI/CD.
  */
 export default function ghaUser(
-  construct: Construct,
-  userName: string,
+  stack: Stack,
   ecrRepositories: Repository[],
   lambdas?: Function[],
   services?: ecs.FargateService[],
 ): CfnAccessKey | undefined {
   const statements: PolicyStatement[] = [];
 
+  // ECR login
   statements.push(new PolicyStatement({
     effect: Effect.ALLOW,
     actions: [
@@ -28,6 +28,7 @@ export default function ghaUser(
     ],
   }));
 
+  // ECR repositories
   const repositoryArns = ecrRepositories
     .filter((repository) => repository !== undefined)
     .map((repository) => repository.repositoryArn);
@@ -49,6 +50,7 @@ export default function ghaUser(
     }));
   }
 
+  // Lambda functions
   if (lambdas) {
     const lambdaArns = lambdas
       .filter((lambda) => lambda !== undefined)
@@ -64,6 +66,7 @@ export default function ghaUser(
     }
   }
 
+  // Fargate services
   if (services) {
     const serviceArns = services
       .filter((service) => service !== undefined)
@@ -79,16 +82,22 @@ export default function ghaUser(
     }
   }
 
-  const ghaPolicy = new Policy(construct, 'ghaUserPolicy', {
+  // A policy that includes these statments
+  const ghaPolicy = new Policy(stack, 'ghaUserPolicy', {
     policyName: 'ghaUserPolicy',
     statements,
   });
-  const user = new User(construct, 'ghaUser', { userName });
+
+  // A user with the policy attached
+  const user = new User(stack, 'ghaUser', { userName: stack.stackName });
   user.attachInlinePolicy(ghaPolicy);
 
+  // Credentials
   let accessKey: CfnAccessKey | undefined;
   if (!process.env.REKEY) {
-    accessKey = new CfnAccessKey(construct, 'ghaUserAccessKey', { userName: user.userName });
+    accessKey = new CfnAccessKey(stack, 'ghaUserAccessKey', {
+      userName: user.userName,
+    });
   }
 
   return accessKey;
